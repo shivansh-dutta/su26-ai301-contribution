@@ -3,7 +3,7 @@
 **Contribution Number:** 1  
 **Student:** Shivansh Dutta  
 **Issue:** https://github.com/saleor/saleor/issues/14506  
-**Status:** Phase I
+**Status:** Phase II
 
 ---
 
@@ -55,19 +55,37 @@ server error response with no useful message for the API consumer.
 
 ### Environment Setup
 
-[Notes on setting up your local development environment - challenges you faced, how you solved them]
+Cloned fork into `Documents/CodePath/saleor` on Windows 11. Used saleor's built-in
+`.devcontainer/` setup with Cursor (VS Code fork) + Docker Desktop — the container
+builds Python 3.12 + uv + all dependencies and runs `python manage.py migrate`
+automatically on first start.
+
+Challenges faced:
+- Docker Desktop was not running initially — had to launch it before "Reopen in Container" worked
+- Git flagged "dubious ownership" inside the container — fixed with `git config --global --add safe.directory /app`
+- Cursor's AI composer corrupted line endings across 4,195 files when attempting a tab fix — resolved with `git restore .`
 
 ### Steps to Reproduce
 
-1. Set up saleor locally and obtain an auth token with `MANAGE_ORDERS` permission
-2. Call the `orderBulkCreate` mutation without including the `status` field on the order input
-3. Observe: the API returns `"Internal Server Error"` instead of a validation error
+1. Clone fork: `git clone https://github.com/shivansh-dutta/saleor.git`
+2. Open in Cursor → Command Palette → "Dev Containers: Reopen in Container"
+3. Wait for container build and migrations to complete
+4. Run the reproduction test:
+   ```
+   uv run poe test "saleor/graphql/order/tests/mutations/test_order_bulk_create.py::test_order_bulk_create_without_status_raises_keyerror" -n0
+   ```
+5. **Expected:** Clean GraphQL validation error saying `status` is required
+6. **Actual:** Top-level GraphQL error from unhandled `KeyError: 'status'` in `create_single_order`
 
 ### Reproduction Evidence
 
-- **Commit showing reproduction:** [Link to commit in your fork]
-- **Screenshots/logs:** [If applicable]
-- **My findings:** [What you discovered during reproduction]
+- **Commit showing reproduction:** https://github.com/shivansh-dutta/saleor/commit/5d5c73263
+- **Branch:** https://github.com/shivansh-dutta/saleor/tree/fix-issue-14506
+- **My findings:** The `KeyError` fires in `create_single_order` at the line
+  `order_data.order.status = order_input["status"]` — a direct dict access with no
+  `.get()` fallback. Since `status` is not marked `required=True` in `OrderBulkCreateInput`,
+  GraphQL passes the request through without validation, and Python crashes when it
+  tries to read the missing key. Confirmed still present on `main` as of June 2026.
 
 ---
 
@@ -111,9 +129,11 @@ one-line change needed and the maintainer's preferred CHANGELOG wording.
 4. Drop any schema-level test for this (maintainer noted GraphQL schema
    guarantees this automatically — no explicit test needed)
 
-**Implement:** [Link to your branch/commits as you work]
+**Implement:** https://github.com/shivansh-dutta/saleor/tree/fix-issue-14506 (Phase III)
 
-**Review:** [Self-review checklist - does it follow the project's contribution guidelines?]
+**Review:** Will self-review against saleor's `CONTRIBUTING.md` and commit message
+conventions before opening PR. Will verify the CHANGELOG entry uses the exact
+wording from maintainer's review on PR #14760.
 
 **Evaluate:** Run the mutation without `status` and confirm a clean GraphQL
 validation error is returned instead of an Internal Server Error.
@@ -147,11 +167,18 @@ validation error is returned instead of an Internal Server Error.
 Selected issue, reviewed previous PR #14760 and maintainer feedback. Identified
 exact files to change and maintainer's preferred CHANGELOG wording.
 
+### Week 2 Progress
+
+Set up local dev environment via Dev Container. Confirmed bug still exists on
+`main`. Pinpointed the exact crash location: `create_single_order` in
+`order_bulk_create.py` at `order_data.order.status = order_input["status"]`.
+Wrote and committed a reproduction test that confirms the bug on-demand.
+
 ### Code Changes
 
-- **Files to modify:** `saleor/graphql/order/bulk_mutations/order_bulk_create.py`,
+- **Files to modify (Phase III):** `saleor/graphql/order/bulk_mutations/order_bulk_create.py`,
   `CHANGELOG.md`
-- **Key commits:** [Links to important commits]
+- **Key commits:** https://github.com/shivansh-dutta/saleor/commit/5d5c73263 (reproduction test)
 - **Approach decisions:** Following maintainer's exact suggestions from PR #14760
   review — using their preferred CHANGELOG wording and skipping the schema
   validation test they said was unnecessary
