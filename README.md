@@ -3,7 +3,7 @@
 **Contribution Number:** 1  
 **Student:** Shivansh Dutta  
 **Issue:** https://github.com/saleor/saleor/issues/14506  
-**Status:** Phase II
+**Status:** Phase III
 
 ---
 
@@ -45,6 +45,7 @@ server error response with no useful message for the API consumer.
 
 - `saleor/graphql/order/bulk_mutations/order_bulk_create.py` — where the
   `OrderBulkCreateInput` type and `status` field are defined
+- `saleor/graphql/schema.graphql` — generated schema snapshot (regenerated via `poe build-schema`)
 - `CHANGELOG.md` — needs a breaking change entry since making a field required
   is a breaking API change (the field is in a Preview feature, so this is
   acceptable per maintainer guidance)
@@ -72,10 +73,10 @@ Challenges faced:
 3. Wait for container build and migrations to complete
 4. Run the reproduction test:
    ```
-   uv run poe test "saleor/graphql/order/tests/mutations/test_order_bulk_create.py::test_order_bulk_create_without_status_raises_keyerror" -n0
+   uv run poe test saleor/graphql/order/tests/mutations/test_order_bulk_create.py -k without_status -n0
    ```
 5. **Expected:** Clean GraphQL validation error saying `status` is required
-6. **Actual:** Top-level GraphQL error from unhandled `KeyError: 'status'` in `create_single_order`
+6. **Actual (before fix):** Top-level GraphQL error from unhandled `KeyError: 'status'` in `create_single_order`
 
 ### Reproduction Evidence
 
@@ -83,9 +84,9 @@ Challenges faced:
 - **Branch:** https://github.com/shivansh-dutta/saleor/tree/fix-issue-14506
 - **My findings:** The `KeyError` fires in `create_single_order` at the line
   `order_data.order.status = order_input["status"]` — a direct dict access with no
-  `.get()` fallback. Since `status` is not marked `required=True` in `OrderBulkCreateInput`,
-  GraphQL passes the request through without validation, and Python crashes when it
-  tries to read the missing key. Confirmed still present on `main` as of June 2026.
+  `.get()` fallback. Since `status` was not marked `required=True` in `OrderBulkCreateInput`,
+  GraphQL passed the request through without validation, and Python crashed when it
+  tried to read the missing key. Confirmed still present on `main` as of June 2026.
 
 ---
 
@@ -118,25 +119,20 @@ in the Graphene field definition. The previous PR #14760 shows the exact
 one-line change needed and the maintainer's preferred CHANGELOG wording.
 
 **Plan:**
-1. In `order_bulk_create.py`, find `OrderBulkCreateInput` and add `required=True`
-   to the `status` field
-2. In `CHANGELOG.md`, add under **Breaking changes**:
-   `[Preview feature] The OrderBulkCreateInput.status input field in the
-   orderBulkCreate mutation is now a required field.`
-3. In `CHANGELOG.md`, add under **GraphQL API**:
-   `Fix field validation of the orderBulkCreate mutation that requires the
-   status field. - #14506 by @<username>`
-4. Drop any schema-level test for this (maintainer noted GraphQL schema
-   guarantees this automatically — no explicit test needed)
+1. In `order_bulk_create.py`, add `required=True` to the `status` field
+2. Regenerate `schema.graphql` via `uv run poe build-schema`
+3. In `CHANGELOG.md`, add under **Breaking changes** and **GraphQL API**
+4. Write a test asserting the fix returns a clean validation error
 
-**Implement:** https://github.com/shivansh-dutta/saleor/tree/fix-issue-14506 (Phase III)
+**Implement:** https://github.com/shivansh-dutta/saleor/tree/fix-issue-14506 ✅ Done
 
-**Review:** Will self-review against saleor's `CONTRIBUTING.md` and commit message
-conventions before opening PR. Will verify the CHANGELOG entry uses the exact
-wording from maintainer's review on PR #14760.
+**Review:** Self-reviewed against saleor's `CONTRIBUTING.md` and Conventional
+Commits format. CHANGELOG uses the exact wording from maintainer's review on
+PR #14760. Full test suite (17,323 tests) passes.
 
-**Evaluate:** Run the mutation without `status` and confirm a clean GraphQL
-validation error is returned instead of an Internal Server Error.
+**Evaluate:** Test `test_order_bulk_create_without_status_returns_validation_error`
+confirms a clean GraphQL validation error is returned instead of an Internal
+Server Error. Full suite green — no regressions.
 
 ---
 
@@ -144,19 +140,22 @@ validation error is returned instead of an Internal Server Error.
 
 ### Unit Tests
 
-- [ ] Verify calling `orderBulkCreate` without `status` returns a GraphQL
-      validation error (not a 500)
-- [ ] Verify calling `orderBulkCreate` with a valid `status` still works as
-      expected
+- [x] Verify calling `orderBulkCreate` without `status` returns a GraphQL
+      validation error (not a 500) —
+      `test_order_bulk_create_without_status_returns_validation_error`
+- [x] Verify calling `orderBulkCreate` with a valid `status` still works as
+      expected — all 86 existing `test_order_bulk_create.py` tests still pass
 
 ### Integration Tests
 
-- [ ] End-to-end mutation call without `status` field returns expected error
-      response structure
+- [x] Full saleor test suite (17,323 tests, 1 skipped) passes with no
+      regressions — run time 13 minutes with 20 parallel workers
 
 ### Manual Testing
 
-[What you tested manually and results]
+Ran the full test suite inside the Dev Container. All existing
+`orderBulkCreate` tests pass `status` in their fixture input, confirming
+making the field required is backwards-compatible with correct callers.
 
 ---
 
@@ -174,20 +173,39 @@ Set up local dev environment via Dev Container. Confirmed bug still exists on
 `order_bulk_create.py` at `order_data.order.status = order_input["status"]`.
 Wrote and committed a reproduction test that confirms the bug on-demand.
 
+### Week 3 Progress
+
+Implemented the fix: added `required=True` to the `status` field in
+`OrderBulkCreateInput`. Regenerated the GraphQL schema snapshot via
+`uv run poe build-schema` — confirmed only `OrderBulkCreateInput.status`
+changed from `OrderStatus` to `OrderStatus!`. Updated the reproduction test
+into a proper fix-verification test. Added both CHANGELOG entries using the
+maintainer's exact wording from PR #14760. Ran the full 17,323-test suite —
+all pass.
+
 ### Code Changes
 
-- **Files to modify (Phase III):** `saleor/graphql/order/bulk_mutations/order_bulk_create.py`,
-  `CHANGELOG.md`
-- **Key commits:** https://github.com/shivansh-dutta/saleor/commit/5d5c73263 (reproduction test)
-- **Approach decisions:** Following maintainer's exact suggestions from PR #14760
-  review — using their preferred CHANGELOG wording and skipping the schema
-  validation test they said was unnecessary
+- **Fix:** `saleor/graphql/order/bulk_mutations/order_bulk_create.py`
+  — added `required=True` to `status` field (one line)
+  — commit: https://github.com/shivansh-dutta/saleor/commit/5f485ba6d
+- **Schema:** `saleor/graphql/schema.graphql`
+  — regenerated; `OrderBulkCreateInput.status` now `OrderStatus!`
+  — commit: https://github.com/shivansh-dutta/saleor/commit/5f485ba6d
+- **Test:** `saleor/graphql/order/tests/mutations/test_order_bulk_create.py`
+  — renamed and tightened reproduction test to verify the fix
+  — commit: https://github.com/shivansh-dutta/saleor/commit/38d3ca147
+- **Changelog:** `CHANGELOG.md`
+  — added Breaking changes + GraphQL API entries
+  — commit: https://github.com/shivansh-dutta/saleor/commit/19f2767a3
+- **Approach decisions:** Followed maintainer's exact suggestions from PR #14760
+  review — used their preferred CHANGELOG wording; no separate schema-validation
+  test since `required=True` is enforced by the GraphQL layer automatically
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted]
+**PR Link:** [GitHub PR URL when submitted — Phase IV]
 
 **PR Description:** [Draft or final PR description]
 
@@ -195,7 +213,7 @@ Wrote and committed a reproduction test that confirms the bug on-demand.
 - [Date]: [Summary of feedback received]
 - [Date]: [How you addressed it]
 
-**Status:** [Awaiting review / Iterating / Approved / Merged]
+**Status:** Ready to submit — Phase IV
 
 ---
 
