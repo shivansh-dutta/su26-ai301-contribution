@@ -3,7 +3,7 @@
 **Contribution Number:** 1  
 **Student:** Shivansh Dutta  
 **Issue:** https://github.com/saleor/saleor/issues/14506  
-**Status:** Phase III
+**Status:** Phase IV
 
 ---
 
@@ -183,6 +183,21 @@ into a proper fix-verification test. Added both CHANGELOG entries using the
 maintainer's exact wording from PR #14760. Ran the full 17,323-test suite —
 all pass.
 
+### Week 4 Progress
+
+Rebased `fix-issue-14506` onto the latest `saleor/saleor` `main` (41 commits
+behind, zero conflicts). Per maintainer @maarcingebala's stated preference on
+the earlier attempt (PR #14760) — "we don't test such changes, as it is
+guaranteed by the GraphQL schema" — removed the dedicated validation test and
+repackaged the change into two clean commits: the fix + regenerated schema,
+and the changelog. Confirmed the final diff against upstream is exactly 3
+files. Re-ran the `order_bulk_create` test suite (86 tests) with no
+regressions. Opened
+[PR #19391](https://github.com/saleor/saleor/pull/19391) against
+`saleor/saleor:main`, filled out the project's PR template, and updated the
+CHANGELOG entry to reference the real PR number. Left a review-request
+comment tagging @maarcingebala.
+
 ### Code Changes
 
 - **Fix:** `saleor/graphql/order/bulk_mutations/order_bulk_create.py`
@@ -200,20 +215,31 @@ all pass.
 - **Approach decisions:** Followed maintainer's exact suggestions from PR #14760
   review — used their preferred CHANGELOG wording; no separate schema-validation
   test since `required=True` is enforced by the GraphQL layer automatically
+- **Rebase (Phase IV):** rebased onto `saleor/saleor:main`, dropped the test per
+  maintainer guidance, repackaged into 2 commits
+  — https://github.com/shivansh-dutta/saleor/commit/dcec62680 (fix + schema)
+  — https://github.com/shivansh-dutta/saleor/commit/d2aa4c49f (changelog)
+  — https://github.com/shivansh-dutta/saleor/commit/552c4c175 (changelog PR-number update)
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted — Phase IV]
+**PR Link:** https://github.com/saleor/saleor/pull/19391
 
-**PR Description:** [Draft or final PR description]
+**PR Description:** Marks the `status` field on `OrderBulkCreateInput` as
+`required=True` so `orderBulkCreate` returns a clean GraphQL validation error
+instead of crashing with an unhandled `KeyError: 'status'` when the field is
+omitted. Includes the regenerated schema snapshot and CHANGELOG entries;
+follows maintainer feedback from the earlier attempt (#14760) on wording and
+on omitting a dedicated test.
 
 **Maintainer Feedback:**
-- [Date]: [Summary of feedback received]
-- [Date]: [How you addressed it]
+- 2026-07-01: PR opened against `saleor/saleor:main`; left a review-request
+  comment tagging @maarcingebala, referencing the prior PR #14760 and the
+  guidance followed.
 
-**Status:** Ready to submit — Phase IV
+**Status:** Awaiting review
 
 ---
 
@@ -221,15 +247,30 @@ all pass.
 
 ### Technical Skills Gained
 
-[What you learned technically]
+Learned how Graphene enforces GraphQL-level field validation via
+`required=True`, why the committed `schema.graphql` snapshot must be
+regenerated (never hand-edited) and is CI-enforced, and how to read prior
+maintainer feedback on a closed PR to shape a mergeable second attempt. Also
+practiced a full rebase-and-repackage workflow: rebasing a feature branch
+onto a fast-moving upstream (41 commits), then using `git reset --soft` to
+cleanly re-split commits and drop one entirely.
 
 ### Challenges Overcome
 
-[What was hard and how you solved it]
+The Dev Container had no cached GitHub credentials, so pushes had to happen
+from the host checkout (same bind mount, host has Credential Manager) while
+all git/test work ran inside the container via `docker exec`. Also hit a
+`git reset --soft` gotcha — it re-stages everything from the prior HEAD, so
+`git add <file>` no-ops and a follow-up commit silently sweeps in unrelated
+changes unless you explicitly `git restore --staged` the files you don't
+want yet.
 
 ### What I'd Do Differently Next Time
 
-[Reflection on your process]
+I'd read the previous maintainer's review comments before starting Phase II,
+not just before Phase IV — it would've told me from the start that a
+dedicated test wasn't wanted, saving the extra Phase III test-writing work I
+ended up reverting during the rebase.
 
 ---
 
