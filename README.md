@@ -1,3 +1,122 @@
+# Contribution 2: Bug: Internal Server Error instead of a validation error on too long inputs #12696
+
+**Contribution Number:** 2
+**Student:** Shivansh Dutta
+**Issue:** https://github.com/saleor/saleor/issues/12696
+**Status:** Phase I Complete
+
+---
+
+## Why I Chose This Issue
+
+I chose Saleor issue #12696 — "Internal Server Error instead of a validation error
+on too long inputs" — because it is a well-scoped, `good first issue`-labeled bug in
+a project I already know deeply from my first contribution (#14506). The `message` and
+`pspReference` fields on transaction-event mutations map to database columns capped at
+512 characters, but the GraphQL layer never validates that length, so an over-long
+value hits PostgreSQL, raises a `DataError`, and is returned to the caller as an
+Internal Server Error (500) instead of a descriptive validation error.
+
+I'm interested in this because:
+1. It is the **same bug family** as my first contribution — an unhandled error that
+   should surface as a clean GraphQL validation error — so I can reuse the fix pattern
+   (push validation to the API/input layer before the write reaches the database).
+2. My Saleor dev environment (devcontainer, `uv`/`poe`, full test suite) is already
+   built and green, so I can reproduce and verify quickly.
+3. The codebase area is contained: the fields are defined in
+   `saleor/payment/models.py` (`TransactionEvent.message` / `.psp_reference`,
+   `max_length=512`) and the entry points are the transaction mutations
+   (`transactionEventReport`, `transactionCreate`, `transactionUpdate`).
+4. Maintainers are **actively working in this exact area** — recent 2026 PRs such as
+   "Reject control characters from the request" and "Gracefully handle invalid json
+   string" harden the same class of 500-to-validation-error problem — so a fix here
+   is likely to get engaged review.
+
+From reading the issue, "fixed" means: sending a `message` or `pspReference` longer
+than 512 characters to a transaction mutation returns a GraphQL validation error
+identifying the offending field and its max length, instead of a 500.
+
+---
+
+## Understanding the Issue
+
+*(Phase II — to be completed: reproduce locally, confirm the exact crash site, and
+draft the solution approach.)*
+
+### Problem Description
+
+*(Phase II)*
+
+### Expected Behavior
+
+*(Phase II)*
+
+### Current Behavior
+
+*(Phase II)*
+
+### Affected Components
+
+- `saleor/payment/models.py` — `TransactionEvent.message` and
+  `TransactionEvent.psp_reference` (`CharField(max_length=512)`)
+- The transaction GraphQL mutations that write these fields
+  (`transactionEventReport`, `transactionCreate`, `transactionUpdate`)
+
+---
+
+## Reproduction Process
+
+*(Phase II)*
+
+---
+
+## Solution Approach
+
+*(Phase II)*
+
+---
+
+## Testing Strategy
+
+*(Phase III)*
+
+---
+
+## Implementation Notes
+
+### Week 5 Progress (Phase I)
+
+Selected Saleor issue #12696 from the CodePath candidate list after running it through
+the 6-point selection checklist (scored 6/6): the problem is understood in one
+sentence, scope is small, it matches skills proven on my first contribution, it is
+open/unassigned with no competing PR, there is recent maintainer activity in the same
+area, and the project's dev environment is already set up. Forked the project,
+commented on the issue expressing interest, and marked the row on the course sheet.
+
+---
+
+## Pull Request
+
+*(Phase IV)*
+
+**PR Link:**
+**PR Description:**
+**Maintainer Feedback:**
+**Status:** Not yet submitted
+
+---
+
+## Learnings & Reflections
+
+*(To be completed as the contribution progresses.)*
+
+---
+
+## Resources Used
+
+- [Original issue #12696](https://github.com/saleor/saleor/issues/12696)
+- [Saleor contributing guide](https://github.com/saleor/saleor/blob/main/CONTRIBUTING.md)
+- [saleor/payment/models.py](https://github.com/saleor/saleor/blob/main/saleor/payment/models.py)
 # Contribution 1: Bug: KeyError: 'status' raised in orderBulkCreate mutation #14506
 
 **Contribution Number:** 1  
